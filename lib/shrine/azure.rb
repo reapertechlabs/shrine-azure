@@ -40,6 +40,16 @@ class Shrine
 
       end
 
+      def download(id, &block)
+        binding.pry
+        if block_given?
+          stream(id, &block)
+        else
+          _, io = blobs.get_blob(container, id)
+          io.force_encoding(Encoding::BINARY)
+        end
+      end
+
       def exists?(id)
         # returns whether the file exists on storage
         blob_for(key).present?
@@ -61,6 +71,21 @@ class Shrine
 
       def uri_for(key)
         blobs.generate_uri("#{container}/#{key}")
+      end
+
+      # Reads the object for the given key in chunks, yielding each to the block.
+      def stream(key)
+        binding.pry
+        blob = blob_for(key)
+
+        chunk_size = 5.megabytes
+        offset = 0
+
+        while offset < blob.properties[:content_length]
+          _, chunk = blobs.get_blob(container, key, start_range: offset, end_range: offset + chunk_size - 1)
+          yield chunk.force_encoding(Encoding::BINARY)
+          offset += chunk_size
+        end
       end
     end
   end
