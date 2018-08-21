@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    shrine-azure (0.1.0)
+    shrine-azure (0.1.1)
       azure-storage
       shrine
 

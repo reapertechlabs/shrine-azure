@@ -17,7 +17,9 @@ class Shrine
       def upload(io, id, shrine_metadata: {}, **upload_options)
         # uploads `io` to the location `id`, can accept upload options
         begin
-          blobs.create_block_blob(container, id, io.to_io)
+          filename =  shrine_metadata.filename
+          options = { :content_type => shrine_metadata.mime_type,  content_disposition: 'attachment; filename=' + filename }
+          blobs.create_block_blob(container, id, io.to_io, options)
         rescue Azure::Core::Http::HTTPError
           raise Shrine::Error
         end
@@ -28,26 +30,22 @@ class Shrine
       end
 
       def url(id, expires_in = nil, **options)
-        # returns URL to the remote file, can accept URL options
+        # options = { :content_type => io.metadata.mime_type,  content_disposition: 'attachment; filename=' + filename }
+
         generated_url = signer.signed_uri(
             uri_for(id), false,
             service: "b",
-            permissions: "rw",
-            expiry: format_expiry(expires_in)
+            permissions: "r",
+            expiry: format_expiry(expires_in),
+
         ).to_s
 
         generated_url
 
       end
 
-      def download(id, &block)
-        binding.pry
-        if block_given?
-          stream(id, &block)
-        else
-          _, io = blobs.get_blob(container, id)
-          io.force_encoding(Encoding::BINARY)
-        end
+      def download(id, download: nil, &block)
+
       end
 
       def exists?(id)
@@ -65,6 +63,7 @@ class Shrine
       end
 
       private
+
       def format_expiry(expires_in)
         expires_in ? Time.now.utc.advance(seconds: expires_in).iso8601 : nil
       end
@@ -73,20 +72,6 @@ class Shrine
         blobs.generate_uri("#{container}/#{key}")
       end
 
-      # Reads the object for the given key in chunks, yielding each to the block.
-      def stream(key)
-        binding.pry
-        blob = blob_for(key)
-
-        chunk_size = 5.megabytes
-        offset = 0
-
-        while offset < blob.properties[:content_length]
-          _, chunk = blobs.get_blob(container, key, start_range: offset, end_range: offset + chunk_size - 1)
-          yield chunk.force_encoding(Encoding::BINARY)
-          offset += chunk_size
-        end
-      end
     end
   end
 end
